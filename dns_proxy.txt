@@ -1,0 +1,75 @@
+dns_proxy enhances dnscache with configurable response rewriting capabilities.
+
+Installation
+------------
+djbdns with dnscache should be built from the patched source and installed the usual way
+
+Configuration
+-------------
+A rewrite.conf file has to be created in the configured dnscache root directory.
+
+Each line of the file defines a single rule. A rule consists of 6 fields, separated
+by ';'. Each rule should start at the beginning of the line, without any extra
+whitespaces. The first 3 fields together define a pattern which a DNS query
+has to match to make the rule trigger, in case of trigger the response collected
+from dnscache is rewritten before sending it to the client.
+The last 3 fields are used to define the altered response.
+Rules are evaluated in the order of their definition, the first matching one
+will be used.
+
+The 6 fields of a rule are:
+
+1. IP address expression of the DNS query requester.
+   A DNS query's requester IP must match the expression to make the rule trigger.   
+   A valid IPv4 address has to be specified (IPv6 is not supported yet).
+   Each decimal part of the address can be replaced with an interval, 
+   for example: '1.2.1-100.4'. A decimal part can be also omitted,
+   which indicates the 0-255 interval, thus '1.2..4' means '1.2.0-255.4'.
+   The most generic expression is '...' which translates to '0-255.0-255.0-255.0-255'
+   (thus all IPv4 addresses).
+
+2. A regular expression, which the DNS query's content must match
+   to make the rule trigger. A POSIX regular expression has to be specified.
+   For example '.*\.com' will match all names ending with '.com'.
+   Expression must cover the whole name.
+
+3. Type of the matching DNS query, currently supported: A, CNAME, NS, PTR,
+   MX, SOA and TXT. If the field is empty all types are matched.
+
+4. Content of the response. At the moment only a single response is supported in a rule.
+   Format depends on the response type (defined in 5. field).
+   A - <a single valid IPv4 address>
+   CNAME, NS, PTR - <a single valid domainname>
+   MX - <preference>:<domainname>
+   SOA - <mname>:<rname>:<serial>:<refresh>:<retry>:<expire>:<minimum>
+         mname, rname must be valid domainnames
+         serial, refresh, retry, expire and minimum must be integers
+         within 0 and 4294967295.
+   TXT - <a string, not longer than 255 characters>
+
+   For meaning of these fields check RFC 1035.
+
+5. Type of the response: A, CNAME, NS, PTR, MX, SOA or TXT.
+
+6. TTL values to be used
+
+For NXDOMAIN response 4. field should have the value 'NXDOMAIN', in this case
+5. and 6. fields should be empty.
+
+If 4. and 5. fields are empty the original dnscache answers (all of them)
+are returned for the query, only TTL rewriting is used.
+
+If 6. field is empty no TTL rewriting is used.
+
+All lines starting with a '#' are treated as comment lines and aren't evaluated.
+
+Each time the configuration file is modified dnscache has to be restarted to
+make the changes come into effect.
+
+If no rewrite.conf is present or it's content is faulty dnscache will operate
+normally without using the rewriting capability.
+Missing of rewrite.conf or the first faulty line's number in rewrite.conf is
+indicated in dnscache's current log. If none of the above are written there,
+rewrite.conf was loaded successfully and dns_proxy is operating.
+
+See dns_proxy_example.conf for examples.
